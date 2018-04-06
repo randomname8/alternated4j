@@ -17,6 +17,7 @@
 package discord4j.common.jackson;
 
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
@@ -29,83 +30,139 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 public class PayloadDeserializer extends StdDeserializer<GatewayPayload<?>> {
 
-    private static final String OP_FIELD = "op";
-    private static final String D_FIELD = "d";
-    private static final String T_FIELD = "t";
-    private static final String S_FIELD = "s";
+  private static final String OP_FIELD = "op";
+  private static final String D_FIELD = "d";
+  private static final String T_FIELD = "t";
+  private static final String S_FIELD = "s";
 
-    private static final Map<String, Class<? extends Dispatch>> dispatchTypes = new HashMap<>();
+  private static final Map<String, Class<? extends Dispatch>> dispatchTypes = new HashMap<>();
 
-    static {
-        dispatchTypes.put(EventNames.READY, Ready.class);
-        dispatchTypes.put(EventNames.RESUMED, Resumed.class);
-        dispatchTypes.put(EventNames.CHANNEL_CREATE, ChannelCreate.class);
-        dispatchTypes.put(EventNames.CHANNEL_UPDATE, ChannelUpdate.class);
-        dispatchTypes.put(EventNames.CHANNEL_DELETE, ChannelDelete.class);
-        dispatchTypes.put(EventNames.CHANNEL_PINS_UPDATE, ChannelPinsUpdate.class);
-        dispatchTypes.put(EventNames.GUILD_CREATE, GuildCreate.class);
-        dispatchTypes.put(EventNames.GUILD_UPDATE, GuildUpdate.class);
-        dispatchTypes.put(EventNames.GUILD_DELETE, GuildDelete.class);
-        dispatchTypes.put(EventNames.GUILD_BAN_ADD, GuildBanAdd.class);
-        dispatchTypes.put(EventNames.GUILD_BAN_REMOVE, GuildBanRemove.class);
-        dispatchTypes.put(EventNames.GUILD_EMOJIS_UPDATE, GuildEmojisUpdate.class);
-        dispatchTypes.put(EventNames.GUILD_INTEGRATIONS_UPDATE, GuildIntegrationsUpdate.class);
-        dispatchTypes.put(EventNames.GUILD_MEMBER_ADD, GuildMemberAdd.class);
-        dispatchTypes.put(EventNames.GUILD_MEMBER_REMOVE, GuildMemberRemove.class);
-        dispatchTypes.put(EventNames.GUILD_MEMBER_UPDATE, GuildMemberUpdate.class);
-        dispatchTypes.put(EventNames.GUILD_MEMBERS_CHUNK, GuildMembersChunk.class);
-        dispatchTypes.put(EventNames.GUILD_ROLE_CREATE, GuildRoleCreate.class);
-        dispatchTypes.put(EventNames.GUILD_ROLE_UPDATE, GuildRoleUpdate.class);
-        dispatchTypes.put(EventNames.GUILD_ROLE_DELETE, GuildRoleDelete.class);
-        dispatchTypes.put(EventNames.MESSAGE_CREATE, MessageCreate.class);
-        dispatchTypes.put(EventNames.MESSAGE_UPDATE, MessageUpdate.class);
-        dispatchTypes.put(EventNames.MESSAGE_DELETE, MessageDelete.class);
-        dispatchTypes.put(EventNames.MESSAGE_DELETE_BULK, MessageDeleteBulk.class);
-        dispatchTypes.put(EventNames.MESSAGE_REACTION_ADD, MessageReactionAdd.class);
-        dispatchTypes.put(EventNames.MESSAGE_REACTION_REMOVE, MessageReactionRemove.class);
-        dispatchTypes.put(EventNames.MESSAGE_REACTION_REMOVE_ALL, MessageReactionRemoveAll.class);
-        dispatchTypes.put(EventNames.PRESENCE_UPDATE, PresenceUpdate.class);
-        dispatchTypes.put(EventNames.TYPING_START, TypingStart.class);
-        dispatchTypes.put(EventNames.USER_UPDATE, UserUpdate.class);
-        dispatchTypes.put(EventNames.VOICE_STATE_UPDATE, VoiceStateUpdateDispatch.class);
-        dispatchTypes.put(EventNames.VOICE_SERVER_UPDATE, VoiceServerUpdate.class);
-        dispatchTypes.put(EventNames.WEBHOOKS_UPDATE, WebhooksUpdate.class);
+  static {
+    dispatchTypes.put(EventNames.READY, Ready.class);
+    dispatchTypes.put(EventNames.RESUMED, Resumed.class);
+    dispatchTypes.put(EventNames.CHANNEL_CREATE, ChannelCreate.class);
+    dispatchTypes.put(EventNames.CHANNEL_UPDATE, ChannelUpdate.class);
+    dispatchTypes.put(EventNames.CHANNEL_DELETE, ChannelDelete.class);
+    dispatchTypes.put(EventNames.CHANNEL_PINS_UPDATE, ChannelPinsUpdate.class);
+    dispatchTypes.put(EventNames.GUILD_CREATE, GuildCreate.class);
+    dispatchTypes.put(EventNames.GUILD_UPDATE, GuildUpdate.class);
+    dispatchTypes.put(EventNames.GUILD_DELETE, GuildDelete.class);
+    dispatchTypes.put(EventNames.GUILD_BAN_ADD, GuildBanAdd.class);
+    dispatchTypes.put(EventNames.GUILD_BAN_REMOVE, GuildBanRemove.class);
+    dispatchTypes.put(EventNames.GUILD_EMOJIS_UPDATE, GuildEmojisUpdate.class);
+    dispatchTypes.put(EventNames.GUILD_INTEGRATIONS_UPDATE, GuildIntegrationsUpdate.class);
+    dispatchTypes.put(EventNames.GUILD_MEMBER_ADD, GuildMemberAdd.class);
+    dispatchTypes.put(EventNames.GUILD_MEMBER_REMOVE, GuildMemberRemove.class);
+    dispatchTypes.put(EventNames.GUILD_MEMBER_UPDATE, GuildMemberUpdate.class);
+    dispatchTypes.put(EventNames.GUILD_MEMBERS_CHUNK, GuildMembersChunk.class);
+    dispatchTypes.put(EventNames.GUILD_ROLE_CREATE, GuildRoleCreate.class);
+    dispatchTypes.put(EventNames.GUILD_ROLE_UPDATE, GuildRoleUpdate.class);
+    dispatchTypes.put(EventNames.GUILD_ROLE_DELETE, GuildRoleDelete.class);
+    dispatchTypes.put(EventNames.MESSAGE_CREATE, MessageCreate.class);
+    dispatchTypes.put(EventNames.MESSAGE_UPDATE, MessageUpdate.class);
+    dispatchTypes.put(EventNames.MESSAGE_DELETE, MessageDelete.class);
+    dispatchTypes.put(EventNames.MESSAGE_DELETE_BULK, MessageDeleteBulk.class);
+    dispatchTypes.put(EventNames.MESSAGE_REACTION_ADD, MessageReactionAdd.class);
+    dispatchTypes.put(EventNames.MESSAGE_REACTION_REMOVE, MessageReactionRemove.class);
+    dispatchTypes.put(EventNames.MESSAGE_REACTION_REMOVE_ALL, MessageReactionRemoveAll.class);
+    dispatchTypes.put(EventNames.PRESENCE_UPDATE, PresenceUpdate.class);
+    dispatchTypes.put(EventNames.TYPING_START, TypingStart.class);
+    dispatchTypes.put(EventNames.USER_UPDATE, UserUpdate.class);
+    dispatchTypes.put(EventNames.VOICE_STATE_UPDATE, VoiceStateUpdateDispatch.class);
+    dispatchTypes.put(EventNames.VOICE_SERVER_UPDATE, VoiceServerUpdate.class);
+    dispatchTypes.put(EventNames.WEBHOOKS_UPDATE, WebhooksUpdate.class);
+  }
+
+  public PayloadDeserializer() {
+    super(GatewayPayload.class);
+  }
+
+  @Override
+  public GatewayPayload<?> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+
+    JsonToken token = p.nextToken();
+    int op = -1;
+    String t = null;
+    int seq = -1;
+    Supplier<? extends PayloadData> data = () -> {
+      throw new UnsupportedOperationException("This gateway event doesn't have data");
+    };
+    iteration:
+    while (token != null) {
+      switch (token) {
+        case FIELD_NAME:
+          switch (p.getCurrentName()) {
+            case OP_FIELD:
+              p.nextToken();
+              op = p.getIntValue();
+              break;
+            case T_FIELD:
+              p.nextToken();
+              t = p.getText();
+              break;
+            case S_FIELD:
+              p.nextToken();
+              seq = p.getIntValue();
+              break;
+            case D_FIELD:
+              p.nextToken();
+              //if the d field was found, then we must have already read the t field
+              if (t == null) throw new IllegalStateException("found d field without a t field stating the type");
+              Class<? extends PayloadData> payloadType = getPayloadType(0, t);
+              data = () -> {
+                try {
+                  return p.readValueAs(payloadType);
+                } catch (IOException ex) {
+                  throwAsUnchecked(ex);
+                  return null;
+                }
+              };
+              break iteration; //when the d field is found, it is the last field in the payload //when the d field is found, it is the last field in the payload
+            default:
+          }
+          if (op != -1 && t != null && seq != -1) break iteration; //if all 3 values were found, just skip
+          token = p.nextToken();
+          break;
+        case START_OBJECT:
+        case START_ARRAY:
+          p.skipChildren();
+          continue;
+        case END_OBJECT:
+          break iteration;
+        default:
+          token = p.nextToken();
+      }
     }
 
-    public PayloadDeserializer() {
-        super(GatewayPayload.class);
+    JsonNode payload = p.getCodec().readTree(p);
+
+    Integer s = payload.get(S_FIELD).isNull() ? null : payload.get(S_FIELD).intValue();
+
+    return new GatewayPayload(Opcode.forRaw(op), data, s, t);
+  }
+
+  @Nullable
+  private static Class<? extends PayloadData> getPayloadType(int op, String t) {
+    if (op == Opcode.DISPATCH.getRawOp()) {
+      if (!dispatchTypes.containsKey(t)) {
+        throw new IllegalArgumentException("Attempt to deserialize payload with unknown event type: " + t);
+      }
+      return dispatchTypes.get(t);
     }
 
-    @Override
-    public GatewayPayload<?> deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-        JsonNode payload = p.getCodec().readTree(p);
-
-        int op = payload.get(OP_FIELD).asInt();
-        String t = payload.get(T_FIELD).asText();
-        Integer s = payload.get(S_FIELD).isNull() ? null : payload.get(S_FIELD).intValue();
-
-        Class<? extends PayloadData> payloadType = getPayloadType(op, t);
-        PayloadData data = payloadType == null ? null : p.getCodec().treeToValue(payload.get(D_FIELD), payloadType);
-
-        return new GatewayPayload(Opcode.forRaw(op), data, s, t);
+    Opcode<?> opcode = Opcode.forRaw(op);
+    if (opcode == null) {
+      throw new IllegalArgumentException("Attempt to deserialize payload with unknown op: " + op);
     }
+    return opcode.getPayloadType();
+  }
 
-    @Nullable
-    private static Class<? extends PayloadData> getPayloadType(int op, String t) {
-        if (op == Opcode.DISPATCH.getRawOp()) {
-            if (!dispatchTypes.containsKey(t)) {
-                throw new IllegalArgumentException("Attempt to deserialize payload with unknown event type: " + t);
-            }
-            return dispatchTypes.get(t);
-        }
-
-        Opcode<?> opcode = Opcode.forRaw(op);
-        if (opcode == null) {
-            throw new IllegalArgumentException("Attempt to deserialize payload with unknown op: " + op);
-        }
-        return opcode.getPayloadType();
-    }
+  @SuppressWarnings("unchecked")
+  private static <E extends Throwable> void throwAsUnchecked(Exception exception) throws E {
+    throw (E) exception;
+  }
 }

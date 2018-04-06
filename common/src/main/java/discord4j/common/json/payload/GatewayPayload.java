@@ -20,30 +20,33 @@ package discord4j.common.json.payload;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import discord4j.common.Lazy;
 import discord4j.common.jackson.OpcodeConverter;
 import discord4j.common.jackson.PayloadDeserializer;
 
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 @JsonDeserialize(using = PayloadDeserializer.class)
 public class GatewayPayload<T extends PayloadData> {
 
+    public static int NO_SEQ = -1;
+  
     @JsonSerialize(converter = OpcodeConverter.class)
     private Opcode<T> op;
     @JsonProperty("d")
     @Nullable
-    private T data;
+    private Lazy<T> dataSupplier;
     @JsonProperty("s")
-    @Nullable
-    private Integer sequence;
+    private int sequence;
     @JsonProperty("t")
     @Nullable
     private String type;
 
-    public GatewayPayload(Opcode<T> op, @Nullable T data, @Nullable Integer sequence, @Nullable String type) {
+    public GatewayPayload(Opcode<T> op, @Nullable Supplier<T> data, int sequence, @Nullable String type) {
         this.op = op;
-        this.data = data;
+        this.dataSupplier = Lazy.apply(data);
         this.sequence = sequence;
         this.type = type;
     }
@@ -52,40 +55,39 @@ public class GatewayPayload<T extends PayloadData> {
     }
 
     public static GatewayPayload<Heartbeat> heartbeat(Heartbeat data) {
-        return new GatewayPayload<>(Opcode.HEARTBEAT, data, null, null);
+        return new GatewayPayload<>(Opcode.HEARTBEAT, () -> data, NO_SEQ, null);
     }
 
     public static GatewayPayload<Identify> identify(Identify data) {
-        return new GatewayPayload<>(Opcode.IDENTIFY, data, null, null);
+        return new GatewayPayload<>(Opcode.IDENTIFY, () -> data, NO_SEQ, null);
     }
 
     public static GatewayPayload<StatusUpdate> statusUpdate(StatusUpdate data) {
-        return new GatewayPayload<>(Opcode.STATUS_UPDATE, data, null, null);
+        return new GatewayPayload<>(Opcode.STATUS_UPDATE, () -> data, NO_SEQ, null);
     }
 
     public static GatewayPayload<VoiceStateUpdate> voiceStateUpdate(VoiceStateUpdate data) {
-        return new GatewayPayload<>(Opcode.VOICE_STATE_UPDATE, data, null, null);
+        return new GatewayPayload<>(Opcode.VOICE_STATE_UPDATE, () -> data, NO_SEQ, null);
     }
 
     public static GatewayPayload<Resume> resume(Resume data) {
-        return new GatewayPayload<>(Opcode.RESUME, data, null, null);
+        return new GatewayPayload<>(Opcode.RESUME, () -> data, NO_SEQ, null);
     }
 
     public static GatewayPayload<RequestGuildMembers> requestGuildMembers(RequestGuildMembers data) {
-        return new GatewayPayload<>(Opcode.REQUEST_GUILD_MEMBERS, data, null, null);
+        return new GatewayPayload<>(Opcode.REQUEST_GUILD_MEMBERS, () -> data, NO_SEQ, null);
     }
 
     public Opcode<T> getOp() {
         return op;
     }
 
-    @Nullable
     public T getData() {
-        return data;
+      return dataSupplier.value();
     }
-
+    
     @Nullable
-    public Integer getSequence() {
+    public int getSequence() {
         return sequence;
     }
 
@@ -96,7 +98,7 @@ public class GatewayPayload<T extends PayloadData> {
 
     @Override
     public int hashCode() {
-        return Objects.hash(op, data, sequence, type);
+        return Objects.hash(op, dataSupplier, sequence, type);
     }
 
     @Override
@@ -108,13 +110,13 @@ public class GatewayPayload<T extends PayloadData> {
         GatewayPayload<?> other = (GatewayPayload<?>) obj;
 
         return this.op == other.op
-                && Objects.equals(this.data, other.data)
+                && Objects.equals(this.dataSupplier, other.dataSupplier)
                 && Objects.equals(this.sequence, other.sequence)
                 && Objects.equals(this.type, other.type);
     }
 
     @Override
     public String toString() {
-        return "GatewayPayload[op=" + op + ", data=" + data + ", sequence=" + sequence + ", type=" + type + "]";
+        return "GatewayPayload[op=" + op + ", data=" + dataSupplier + ", sequence=" + sequence + ", type=" + type + "]";
     }
 }

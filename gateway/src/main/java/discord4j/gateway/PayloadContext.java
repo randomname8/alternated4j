@@ -19,133 +19,130 @@ package discord4j.gateway;
 import discord4j.common.ResettableInterval;
 import discord4j.common.json.payload.GatewayPayload;
 import discord4j.common.json.payload.PayloadData;
-import discord4j.common.json.payload.dispatch.Dispatch;
 import reactor.core.publisher.FluxSink;
 
-import javax.annotation.Nullable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Represents gateway payload data enriched with context for processing through a
- * {@link discord4j.gateway.PayloadHandler} defined under {@link discord4j.gateway.PayloadHandlers}
+ * Represents gateway payload data enriched with context for processing through a {@link discord4j.gateway.PayloadHandler} defined under
+ * {@link discord4j.gateway.PayloadHandlers}
  *
  * @param <T> the type of the {@link discord4j.common.json.payload.PayloadData}
  */
 public class PayloadContext<T extends PayloadData> {
 
-    private final GatewayPayload<T> payload;
-    private final FluxSink<Dispatch> dispatch;
-    private final FluxSink<GatewayPayload<?>> sender;
-    private final AtomicInteger lastSequence;
-    private final AtomicReference<String> sessionId;
-    private final ResettableInterval heartbeat;
-    private final String token;
-    private final DiscordWebSocketHandler handler;
+  private final GatewayPayload<T> payload;
+  private final FluxSink<GatewayEvent<?>> dispatch;
+  private final FluxSink<GatewayPayload<?>> sender;
+  private final AtomicInteger lastSequence;
+  private final AtomicReference<String> sessionId;
+  private final ResettableInterval heartbeat;
+  private final String token;
+  private final DiscordWebSocketHandler handler;
 
-    private PayloadContext(GatewayPayload<T> payload, FluxSink<Dispatch> dispatch, FluxSink<GatewayPayload<?>> sender,
-                           AtomicInteger lastSequence, AtomicReference<String> sessionId,
-                           ResettableInterval heartbeat, String token, DiscordWebSocketHandler handler) {
-        this.payload = payload;
-        this.dispatch = dispatch;
-        this.sender = sender;
-        this.lastSequence = lastSequence;
-        this.sessionId = sessionId;
-        this.heartbeat = heartbeat;
-        this.token = token;
-        this.handler = handler;
+  private PayloadContext(GatewayPayload<T> payload, FluxSink<GatewayEvent<?>> dispatch, FluxSink<GatewayPayload<?>> sender,
+    AtomicInteger lastSequence, AtomicReference<String> sessionId,
+    ResettableInterval heartbeat, String token, DiscordWebSocketHandler handler) {
+    this.payload = payload;
+    this.dispatch = dispatch;
+    this.sender = sender;
+    this.lastSequence = lastSequence;
+    this.sessionId = sessionId;
+    this.heartbeat = heartbeat;
+    this.token = token;
+    this.handler = handler;
+  }
+
+  public GatewayPayload<T> getPayload() {
+    return payload;
+  }
+
+  public T getData() {
+    return payload.getData();
+  }
+
+  public FluxSink<GatewayEvent<?>> getDispatch() {
+    return dispatch;
+  }
+
+  public FluxSink<GatewayPayload<?>> getSender() {
+    return sender;
+  }
+
+  public AtomicInteger getLastSequence() {
+    return lastSequence;
+  }
+
+  public AtomicReference<String> getSessionId() {
+    return sessionId;
+  }
+
+  public ResettableInterval getHeartbeat() {
+    return heartbeat;
+  }
+
+  public String getToken() {
+    return token;
+  }
+
+  public DiscordWebSocketHandler getHandler() {
+    return handler;
+  }
+
+  public static class Builder {
+
+    private GatewayPayload<?> payload;
+    private FluxSink<GatewayEvent<?>> dispatch;
+    private FluxSink<GatewayPayload<?>> sender;
+    private AtomicInteger lastSequence;
+    private AtomicReference<String> sessionId;
+    private ResettableInterval heartbeat;
+    private String token;
+    private DiscordWebSocketHandler handler;
+
+    public Builder setPayload(GatewayPayload<?> payload) {
+      this.payload = payload;
+      return this;
     }
 
-    public GatewayPayload<T> getPayload() {
-        return payload;
+    public Builder setDispatch(FluxSink<GatewayEvent<?>> dispatch) {
+      this.dispatch = dispatch;
+      return this;
     }
 
-    @Nullable
-    public T getData() {
-        return payload.getData();
+    public Builder setSender(FluxSink<GatewayPayload<?>> sender) {
+      this.sender = sender;
+      return this;
     }
 
-    public FluxSink<Dispatch> getDispatch() {
-        return dispatch;
+    public Builder setLastSequence(AtomicInteger lastSequence) {
+      this.lastSequence = lastSequence;
+      return this;
     }
 
-    public FluxSink<GatewayPayload<?>> getSender() {
-        return sender;
+    public Builder setSessionId(AtomicReference<String> sessionId) {
+      this.sessionId = sessionId;
+      return this;
     }
 
-    public AtomicInteger getLastSequence() {
-        return lastSequence;
+    public Builder setHeartbeat(ResettableInterval heartbeat) {
+      this.heartbeat = heartbeat;
+      return this;
     }
 
-    public AtomicReference<String> getSessionId() {
-        return sessionId;
+    public Builder setToken(String token) {
+      this.token = token;
+      return this;
     }
 
-    public ResettableInterval getHeartbeat() {
-        return heartbeat;
+    public Builder setHandler(DiscordWebSocketHandler handler) {
+      this.handler = handler;
+      return this;
     }
 
-    public String getToken() {
-        return token;
+    public PayloadContext build() {
+      return new PayloadContext<>(payload, dispatch, sender, lastSequence, sessionId, heartbeat, token, handler);
     }
-
-    public DiscordWebSocketHandler getHandler() {
-        return handler;
-    }
-
-    public static class Builder {
-
-        private GatewayPayload<?> payload;
-        private FluxSink<Dispatch> dispatch;
-        private FluxSink<GatewayPayload<?>> sender;
-        private AtomicInteger lastSequence;
-        private AtomicReference<String> sessionId;
-        private ResettableInterval heartbeat;
-        private String token;
-        private DiscordWebSocketHandler handler;
-
-        public Builder setPayload(GatewayPayload<?> payload) {
-            this.payload = payload;
-            return this;
-        }
-
-        public Builder setDispatch(FluxSink<Dispatch> dispatch) {
-            this.dispatch = dispatch;
-            return this;
-        }
-
-        public Builder setSender(FluxSink<GatewayPayload<?>> sender) {
-            this.sender = sender;
-            return this;
-        }
-
-        public Builder setLastSequence(AtomicInteger lastSequence) {
-            this.lastSequence = lastSequence;
-            return this;
-        }
-
-        public Builder setSessionId(AtomicReference<String> sessionId) {
-            this.sessionId = sessionId;
-            return this;
-        }
-
-        public Builder setHeartbeat(ResettableInterval heartbeat) {
-            this.heartbeat = heartbeat;
-            return this;
-        }
-
-        public Builder setToken(String token) {
-            this.token = token;
-            return this;
-        }
-
-        public Builder setHandler(DiscordWebSocketHandler handler) {
-            this.handler = handler;
-            return this;
-        }
-
-        public PayloadContext build() {
-            return new PayloadContext<>(payload, dispatch, sender, lastSequence, sessionId, heartbeat, token, handler);
-        }
-    }
+  }
 }

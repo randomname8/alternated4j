@@ -68,7 +68,7 @@ public abstract class PayloadHandlers {
             String newSessionId = ((Ready) context.getData()).getSessionId();
             context.getSessionId().set(newSessionId);
         }
-        context.getDispatch().next(context.getData());
+        context.getDispatch().next(new GatewayEvent<>("", context.getData())); //FIXME: need the event type here!
     }
 
     private static void handleHeartbeat(PayloadContext<Heartbeat> context) {

@@ -20,7 +20,6 @@ import discord4j.common.ResettableInterval;
 import discord4j.common.json.payload.GatewayPayload;
 import discord4j.common.json.payload.Heartbeat;
 import discord4j.common.json.payload.Opcode;
-import discord4j.common.json.payload.dispatch.Dispatch;
 import discord4j.common.json.payload.dispatch.Ready;
 import discord4j.gateway.payload.PayloadReader;
 import discord4j.gateway.payload.PayloadWriter;
@@ -68,13 +67,13 @@ public class GatewayClient {
     private final RetryOptions retryOptions;
     private final String token;
 
-    private final EmitterProcessor<Dispatch> dispatch = EmitterProcessor.create(false);
+    private final EmitterProcessor<GatewayEvent<?>> dispatch = EmitterProcessor.create(false);
     private final EmitterProcessor<GatewayPayload<?>> receiver = EmitterProcessor.create(false);
     private final EmitterProcessor<GatewayPayload<?>> sender = EmitterProcessor.create(false);
     private final AtomicInteger lastSequence = new AtomicInteger(0);
     private final AtomicReference<String> sessionId = new AtomicReference<>("");
     private final ResettableInterval heartbeat = new ResettableInterval();
-    private final FluxSink<Dispatch> dispatchSink;
+    private final FluxSink<GatewayEvent<?>> dispatchSink;
     private final FluxSink<GatewayPayload<?>> receiverSink;
     private final FluxSink<GatewayPayload<?>> senderSink;
 
@@ -106,9 +105,9 @@ public class GatewayClient {
             Disposable readySub = dispatch.ofType(Ready.class).subscribe(d -> {
                 RetryContext retryContext = retryOptions.getRetryContext();
                 if (retryContext.getResetCount() == 0) {
-                    dispatchSink.next(GatewayStateChange.connected());
+                    dispatchSink.next(new GatewayEvent<>("GATEWAY_STATE_CHANGED", GatewayStateChange.connected()));
                 } else {
-                    dispatchSink.next(GatewayStateChange.retrySucceeded(retryContext.getAttempts()));
+                    dispatchSink.next(new GatewayEvent<>("GATEWAY_STATE_CHANGED", GatewayStateChange.retrySucceeded(retryContext.getAttempts())));
                 }
                 retryContext.reset();
             });
@@ -127,8 +126,7 @@ public class GatewayClient {
 
             // Create the heartbeat loop, and subscribe it using the sender sink
             Disposable heartbeatSub = heartbeat.ticks()
-                    .map(l -> new Heartbeat(lastSequence.get()))
-                    .map(GatewayPayload::heartbeat)
+                    .map(l -> GatewayPayload.heartbeat(new Heartbeat(lastSequence.get())))
                     .subscribe(handler.outbound()::onNext);
 
             return webSocketClient.execute(gatewayUrl, handler)
@@ -149,16 +147,16 @@ public class GatewayClient {
                     long backoff = context.backoff().toMillis();
                     log.debug("Retry attempt {} in {} ms", attempt, backoff);
                     if (attempt == 1) {
-                        dispatchSink.next(GatewayStateChange.retryStarted(Duration.ofMillis(backoff)));
+                        dispatchSink.next(new GatewayEvent<>("GATEWAY_STATE_CHANGED", GatewayStateChange.retryStarted(Duration.ofMillis(backoff))));
                     } else {
-                        dispatchSink.next(GatewayStateChange.retryFailed(attempt - 1, Duration.ofMillis(backoff)));
+                        dispatchSink.next(new GatewayEvent<>("GATEWAY_STATE_CHANGED", GatewayStateChange.retryFailed(attempt - 1, Duration.ofMillis(backoff))));
                     }
                     context.applicationContext().next();
-                })).doOnTerminate(() -> dispatchSink.next(GatewayStateChange.disconnected()));
+                })).doOnTerminate(() -> dispatchSink.next(new GatewayEvent<>("GATEWAY_STATE_CHANGED", GatewayStateChange.disconnected())));
     }
 
     private GatewayPayload<?> updateSequence(GatewayPayload<?> payload) {
-        if (payload.getSequence() != null) {
+        if (payload.getSequence() != GatewayPayload.NO_SEQ) {
             lastSequence.set(payload.getSequence());
         }
         return payload;
@@ -184,7 +182,7 @@ public class GatewayClient {
      */
     public void close(boolean reconnect) {
         if (reconnect) {
-            senderSink.next(new GatewayPayload<>(Opcode.RECONNECT, null, null, null));
+            senderSink.next(new GatewayPayload<>(Opcode.RECONNECT, null, GatewayPayload.NO_SEQ, null));
         } else {
             senderSink.next(new GatewayPayload<>());
             senderSink.complete();
@@ -204,7 +202,7 @@ public class GatewayClient {
      *
      * @return a Flux of Dispatch values
      */
-    public Flux<Dispatch> dispatch() {
+    public Flux<GatewayEvent<?>> dispatch() {
         return dispatch;
     }
 
