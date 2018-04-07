@@ -35,8 +35,7 @@ public interface Lazy<T> {
 
   static class LazyImpl<T> implements Lazy<T> {
 
-    private final Supplier<T> thunk;
-    private boolean initialized;
+    private Supplier<T> thunk;
     private T evaluatedThunk;
 
     private LazyImpl(Supplier<T> thunk) {
@@ -45,24 +44,23 @@ public interface Lazy<T> {
 
     @Override
     public T value() {
-      if (!initialized) {
+      if (thunk != null) {
         evaluatedThunk = thunk.get();
-        initialized = true;
+        thunk = null;
       }
       return evaluatedThunk;
     }
 
     @Override
     public String toString() {
-      return initialized ? evaluatedThunk.toString() : "<thunk>";
+      return thunk == null ? evaluatedThunk.toString() : "<thunk>";
     }
 
   }
 
   static class ThreadSafeLazyImpl<T> implements Lazy<T> {
 
-    private final Supplier<T> thunk;
-    private volatile boolean initialized;
+    private volatile Supplier<T> thunk;
     private T evaluatedThunk;
 
     private ThreadSafeLazyImpl(Supplier<T> thunk) {
@@ -71,11 +69,11 @@ public interface Lazy<T> {
 
     @Override
     public T value() {
-      if (!initialized) {
+      if (thunk != null) {
         synchronized (this) {
-          if (!initialized) {
+          if (thunk != null) {
             evaluatedThunk = thunk.get();
-            initialized = true;
+            thunk = null;
           }
         }
       }
@@ -84,7 +82,7 @@ public interface Lazy<T> {
 
     @Override
     public String toString() {
-      return initialized ? evaluatedThunk.toString() : "<thunk>";
+      return thunk == null ? evaluatedThunk.toString() : "<thunk>";
     }
   }
 }

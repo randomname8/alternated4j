@@ -124,7 +124,6 @@ public class PayloadDeserializer extends StdDeserializer<GatewayPayload<?>> {
               break iteration; //when the d field is found, it is the last field in the payload //when the d field is found, it is the last field in the payload
             default:
           }
-          if (op != -1 && t != null && seq != -1) break iteration; //if all 3 values were found, just skip
           token = p.nextToken();
           break;
         case START_OBJECT:
