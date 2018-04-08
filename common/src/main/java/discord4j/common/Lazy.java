@@ -16,7 +16,7 @@ public interface Lazy<T> {
   }
 
   public static <T> Lazy<T> threadSafe(Supplier<T> thunk) {
-    return new LazyImpl<>(thunk);
+    return new ThreadSafeLazyImpl<>(thunk);
   }
 
   public static <T> Lazy<T> evaluated(T t) {
