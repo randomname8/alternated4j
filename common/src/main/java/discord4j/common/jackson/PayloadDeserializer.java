@@ -137,11 +137,7 @@ public class PayloadDeserializer extends StdDeserializer<GatewayPayload<?>> {
       }
     }
 
-    JsonNode payload = p.getCodec().readTree(p);
-
-    Integer s = payload.get(S_FIELD).isNull() ? null : payload.get(S_FIELD).intValue();
-
-    return new GatewayPayload(Opcode.forRaw(op), data, s, t);
+    return new GatewayPayload(Opcode.forRaw(op), data, seq, t);
   }
 
   @Nullable
