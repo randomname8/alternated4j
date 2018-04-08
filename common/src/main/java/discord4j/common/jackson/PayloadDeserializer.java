@@ -19,7 +19,6 @@ package discord4j.common.jackson;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import discord4j.common.json.payload.GatewayPayload;
 import discord4j.common.json.payload.Opcode;
