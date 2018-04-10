@@ -18,17 +18,14 @@
 package discord4j.common.json.payload;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import discord4j.common.Lazy;
 import discord4j.common.jackson.OpcodeConverter;
-import discord4j.common.jackson.PayloadDeserializer;
 
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.function.Supplier;
 
-@JsonDeserialize(using = PayloadDeserializer.class)
 public class GatewayPayload<T extends PayloadData> {
 
     public static int NO_SEQ = -1;

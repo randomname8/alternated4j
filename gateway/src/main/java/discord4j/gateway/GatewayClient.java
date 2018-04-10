@@ -21,7 +21,6 @@ import discord4j.common.json.payload.GatewayPayload;
 import discord4j.common.json.payload.Heartbeat;
 import discord4j.common.json.payload.Opcode;
 import discord4j.common.json.payload.StatusUpdate;
-import discord4j.common.json.payload.dispatch.Dispatch;
 import discord4j.common.json.payload.dispatch.Ready;
 import discord4j.gateway.payload.PayloadReader;
 import discord4j.gateway.payload.PayloadWriter;
