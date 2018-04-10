@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import discord4j.common.jackson.PossibleModule;
 import discord4j.common.json.payload.GatewayPayload;
+import discord4j.common.json.payload.dispatch.DispatchEvent;
 import discord4j.common.json.payload.dispatch.MessageCreate;
 import discord4j.common.json.payload.dispatch.Ready;
 import discord4j.gateway.payload.JacksonPayloadReader;
@@ -57,7 +58,7 @@ public class GatewayClientTest {
         GatewayClient gatewayClient = new GatewayClient(reader, writer, retryOptions, token);
 
         gatewayClient.dispatch().subscribe(dispatch -> {
-            if (dispatch instanceof Ready) {
+            if (dispatch.eventType == DispatchEvent.READY) {
                 System.out.println("Test received READY!");
             }
         });
@@ -76,7 +77,7 @@ public class GatewayClientTest {
                     }
                 });
 
-        gatewayClient.execute(gatewayUrl).block();
+        gatewayClient.execute(gatewayUrl, null, null).block();
     }
 
     private ObjectMapper getMapper() {

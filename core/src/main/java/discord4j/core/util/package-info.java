@@ -14,22 +14,7 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Discord4J.  If not, see <http://www.gnu.org/licenses/>.
  */
-package discord4j.rest.service;
+@NonNullApi
+package discord4j.core.util;
 
-import discord4j.common.json.response.VoiceRegionResponse;
-import discord4j.rest.request.Router;
-import discord4j.rest.route.Routes;
-import reactor.core.publisher.Flux;
-
-public class VoiceService extends RestService {
-
-    public VoiceService(Router router) {
-        super(router);
-    }
-
-    public Flux<VoiceRegionResponse> getVoiceRegions() {
-        return Routes.VOICE_REGION_LIST.newRequest()
-                .exchange(getRouter())
-                .flatMapMany(Flux::fromArray);
-    }
-}
+import reactor.util.annotation.NonNullApi;

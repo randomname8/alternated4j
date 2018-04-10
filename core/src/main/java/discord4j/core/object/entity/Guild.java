@@ -16,20 +16,23 @@
  */
 package discord4j.core.object.entity;
 
-import discord4j.core.ServiceMediator;
 import discord4j.core.DiscordClient;
+import discord4j.core.ServiceMediator;
 import discord4j.core.object.Presence;
 import discord4j.core.object.Region;
 import discord4j.core.object.Snowflake;
 import discord4j.core.object.VoiceState;
 import discord4j.core.object.entity.bean.BaseGuildBean;
 import discord4j.core.object.entity.bean.GuildBean;
+import discord4j.core.util.EntityUtil;
+import discord4j.store.util.LongLongTuple2;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 
 /**
  * A Discord guild.
@@ -112,7 +115,7 @@ public final class Guild implements Entity {
      * error is received, it is emitted through the {@code Mono}.
      */
     public Mono<Member> getOwner() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return getClient().getMemberById(getId(), getOwnerId());
     }
 
     /**
@@ -150,7 +153,7 @@ public final class Guild implements Entity {
      * If an error is received, it is emitted through the {@code Mono}.
      */
     public Mono<VoiceChannel> getAfkChannel() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return Mono.justOrEmpty(getAfkChannelId()).flatMap(getClient()::getVoiceChannelById);
     }
 
     /**
@@ -178,7 +181,7 @@ public final class Guild implements Entity {
      * present. If an error is received, it is emitted through the {@code Mono}.
      */
     public Mono<GuildChannel> getEmbedChannel() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return Mono.justOrEmpty(getEmbedChannelId()).flatMap(getClient()::getGuildChannelById);
     }
 
     /**
@@ -187,10 +190,7 @@ public final class Guild implements Entity {
      * @return The level of verification required for the guild.
      */
     public VerificationLevel getVerificationLevel() {
-        return Arrays.stream(VerificationLevel.values())
-                .filter(level -> level.value == data.getVerificationLevel())
-                .findFirst() // If this throws Discord added something
-                .orElseThrow(UnsupportedOperationException::new);
+        return VerificationLevel.of(data.getVerificationLevel());
     }
 
     /**
@@ -199,10 +199,7 @@ public final class Guild implements Entity {
      * @return The default message notification level.
      */
     public NotificationLevel getNotificationLevel() {
-        return Arrays.stream(NotificationLevel.values())
-                .filter(level -> level.value == data.getDefaultMessageNotifications())
-                .findFirst() // If this throws Discord added something
-                .orElseThrow(UnsupportedOperationException::new);
+        return NotificationLevel.of(data.getDefaultMessageNotifications());
     }
 
     /**
@@ -211,10 +208,7 @@ public final class Guild implements Entity {
      * @return The default explicit content filter level.
      */
     public ContentFilterLevel getContentFilterLevel() {
-        return Arrays.stream(ContentFilterLevel.values())
-                .filter(level -> level.value == data.getExplicitContentFilter())
-                .findFirst() // If this throws Discord added something
-                .orElseThrow(UnsupportedOperationException::new);
+        return ContentFilterLevel.of(data.getExplicitContentFilter());
     }
 
     /**
@@ -235,7 +229,7 @@ public final class Guild implements Entity {
      * emitted through the {@code Flux}.
      */
     public Flux<Role> getRoles() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return Flux.fromIterable(getRoleIds()).flatMap(id -> getClient().getRoleById(getId(), id));
     }
 
     /**
@@ -256,7 +250,7 @@ public final class Guild implements Entity {
      * emitted through the {@code Flux}.
      */
     public Flux<GuildEmoji> getEmojis() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return Flux.fromIterable(getEmojiIds()).flatMap(id -> getClient().getGuildEmojiById(getId(), id));
     }
 
     /**
@@ -274,10 +268,7 @@ public final class Guild implements Entity {
      * @return The required MFA level for the guild.
      */
     public MfaLevel getMfaLevel() {
-        return Arrays.stream(MfaLevel.values())
-                .filter(level -> level.value == data.getMfaLevel())
-                .findFirst() // If this throws Discord added something
-                .orElseThrow(UnsupportedOperationException::new);
+        return MfaLevel.of(data.getMfaLevel());
     }
 
     /**
@@ -305,7 +296,7 @@ public final class Guild implements Entity {
      * widget, if present. If an error is received, it is emitted through the {@code Mono}.
      */
     public Mono<GuildChannel> getWidgetChannel() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return Mono.justOrEmpty(getWidgetChannelId()).flatMap(getClient()::getGuildChannelById);
     }
 
     /**
@@ -324,7 +315,7 @@ public final class Guild implements Entity {
      * messages are sent, if present. If an error is received, it is emitted through the {@code Mono}.
      */
     public Mono<TextChannel> getSystemChannel() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return Mono.justOrEmpty(getSystemChannelId()).flatMap(getClient()::getTextChannelById);
     }
 
     /**
@@ -365,7 +356,10 @@ public final class Guild implements Entity {
      * received, it is emitted through the {@code Flux}.
      */
     public Flux<VoiceState> getVoiceStates() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return serviceMediator.getStoreHolder().getVoiceStateStore()
+                // With unsigned longs this gets everything in range 00..00 (inclusive) to 11..11 (exclusive)
+                .findInRange(LongLongTuple2.of(getId().asLong(), 0), LongLongTuple2.of(getId().asLong(), -1))
+                .map(bean -> new VoiceState(serviceMediator, bean));
     }
 
     /**
@@ -385,7 +379,18 @@ public final class Guild implements Entity {
      * received, it is emitted through the {@code Flux}.
      */
     public Flux<GuildChannel> getChannels() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return Mono.justOrEmpty(getGatewayData())
+                .map(GuildBean::getChannels)
+                .map(Arrays::stream)
+                .map(LongStream::boxed)
+                .flatMapMany(Flux::fromStream)
+                .map(Snowflake::of)
+                .flatMap(getClient()::getGuildChannelById)
+                .switchIfEmpty(serviceMediator.getRestClient().getGuildService()
+                        .getGuildChannels(getId().asLong())
+                        .map(EntityUtil::getChannelBean)
+                        .map(bean -> EntityUtil.getChannel(serviceMediator, bean))
+                        .cast(GuildChannel.class));
     }
 
     /**
@@ -395,7 +400,10 @@ public final class Guild implements Entity {
      * received, it is emitted through the {@code Flux}.
      */
     public Flux<Presence> getPresences() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return serviceMediator.getStoreHolder().getPresenceStore()
+                // With unsigned longs this gets everything in range 00..00 (inclusive) to 11..11 (exclusive)
+                .findInRange(LongLongTuple2.of(getId().asLong(), 0), LongLongTuple2.of(getId().asLong(), -1))
+                .map(bean -> new Presence(serviceMediator, bean));
     }
 
     /** Automatically scan and delete messages sent in the server that contain explicit content. */
@@ -429,6 +437,22 @@ public final class Guild implements Entity {
          */
         public int getValue() {
             return value;
+        }
+
+        /**
+         * Gets the content filter level of the guild. It is guaranteed that invoking {@link #getValue()} from the
+         * returned enum will equal ({@code ==}) the supplied {@code value}.
+         *
+         * @param value The underlying value as represented by Discord.
+         * @return The content filter level of the guild.
+         */
+        public static ContentFilterLevel of(final int value) {
+            switch (value) {
+                case 0: return DISABLED;
+                case 1: return MEMBERS_WITHOUT_ROLES;
+                case 2: return ALL_MEMBERS;
+                default: throw new UnsupportedOperationException("Unknown Value: " + value);
+            }
         }
     }
 
@@ -464,6 +488,21 @@ public final class Guild implements Entity {
         public int getValue() {
             return value;
         }
+
+        /**
+         * Gets the multi-factor authentication level of the guild. It is guaranteed that invoking {@link #getValue()}
+         * from the returned enum will equal ({@code ==}) the supplied {@code value}.
+         *
+         * @param value The underlying value as represented by Discord.
+         * @return The multi-factor authentication level of the guild.
+         */
+        public static MfaLevel of(final int value) {
+            switch (value) {
+                case 0: return NONE;
+                case 1: return ELEVATED;
+                default: throw new UnsupportedOperationException("Unknown Value: " + value);
+            }
+        }
     }
 
     /**
@@ -497,6 +536,21 @@ public final class Guild implements Entity {
          */
         public int getValue() {
             return value;
+        }
+
+        /**
+         * Gets the notification level of the guild. It is guaranteed that invoking {@link #getValue()} from the
+         * returned enum will equal ({@code ==}) the supplied {@code value}.
+         *
+         * @param value The underlying value as represented by Discord.
+         * @return The notification level of the guild.
+         */
+        public static NotificationLevel of(final int value) {
+            switch (value) {
+                case 0: return ALL_MESSAGES;
+                case 1: return ONLY_MENTIONS;
+                default: throw new UnsupportedOperationException("Unknown Value: " + value);
+            }
         }
     }
 
@@ -540,6 +594,24 @@ public final class Guild implements Entity {
          */
         public int getValue() {
             return value;
+        }
+
+        /**
+         * Gets the verification level of the guild. It is guaranteed that invoking {@link #getValue()} from the
+         * returned enum will equal ({@code ==}) the supplied {@code value}.
+         *
+         * @param value The underlying value as represented by Discord.
+         * @return The verification level of the guild.
+         */
+        public static VerificationLevel of(final int value) {
+            switch (value) {
+                case 0: return NONE;
+                case 1: return LOW;
+                case 2: return MEDIUM;
+                case 3: return HIGH;
+                case 4: return VERY_HIGH;
+                default: throw new UnsupportedOperationException("Unknown Value: " + value);
+            }
         }
     }
 }

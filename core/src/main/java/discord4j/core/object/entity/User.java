@@ -16,8 +16,8 @@
  */
 package discord4j.core.object.entity;
 
-import discord4j.core.ServiceMediator;
 import discord4j.core.DiscordClient;
+import discord4j.core.ServiceMediator;
 import discord4j.core.object.Snowflake;
 import discord4j.core.object.entity.bean.UserBean;
 import reactor.core.publisher.Mono;
@@ -115,7 +115,7 @@ public class User implements Entity {
      * is received, it is emitted through the {@code Mono}.
      */
     public Mono<Member> asMember(final Snowflake guildId) {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return getClient().getMemberById(guildId, getId());
     }
 
     /**
@@ -126,5 +126,14 @@ public class User implements Entity {
      */
     public final Mono<PrivateChannel> getPrivateChannel() {
         throw new UnsupportedOperationException("Not yet implemented...");
+    }
+
+    /**
+     * Gets the ServiceMediator associated to this object.
+     *
+     * @return The ServiceMediator associated to this object.
+     */
+    protected final ServiceMediator getServiceMediator() {
+        return serviceMediator;
     }
 }

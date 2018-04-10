@@ -81,7 +81,7 @@ public final class Message implements Entity {
      * was sent in. If an error is received, it is emitted through the {@code Mono}.
      */
     public Mono<MessageChannel> getChannel() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return getClient().getMessageChannelById(getChannelId());
     }
 
     /**
@@ -112,7 +112,7 @@ public final class Message implements Entity {
      * present. If an error is received, it is emitted through the {@code Mono}.
      */
     public Mono<User> getAuthor() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return Mono.justOrEmpty(getAuthorId()).flatMap(getClient()::getUserById);
     }
 
     /**
@@ -174,11 +174,11 @@ public final class Message implements Entity {
     /**
      * Requests to retrieve the users specifically mentioned in this message.
      *
-     * @return A {@link Mono} where, upon successful completion, emits the {@link User user} specifically mentioned in
-     * this message. If an error is received, it is emitted through the {@link Mono}.
+     * @return A {@link Flux} that continually emits {@link User users} specifically mentioned in this message. If an
+     * error is received, it is emitted through the {@code Flux}.
      */
     public Flux<User> getUserMentions() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return Flux.fromIterable(getUserMentionIds()).flatMap(getClient()::getUserById);
     }
 
     /**
@@ -195,8 +195,8 @@ public final class Message implements Entity {
     /**
      * Requests to retrieve the roles specifically mentioned in this message.
      *
-     * @return A {@link Mono} where, upon successful completion, emits the {@link Role roles} specifically mentioned in
-     * this message. If an error is received, it is emitted through the {@code Mono}.
+     * @return A {@link Flux} that continually emits {@link Role roles} specifically mentioned in this message. If an
+     * error is received, it is emitted through the {@code Flux}.
      */
     public Flux<Role> getRoleMentions() {
         throw new UnsupportedOperationException("Not yet implemented...");
@@ -205,11 +205,23 @@ public final class Message implements Entity {
     // TODO: getEmbeds()
 
     /**
-     * Gets any attached files.
+     * Gets the IDs of any attached files.
      *
-     * @return Any attached files.
+     * @return The IDs of any attached files.
      */
-    public Set<Attachment> getAttachments() {
+    public Set<Snowflake> getAttachmentIds() {
+        return Arrays.stream(data.getAttachments())
+                .mapToObj(Snowflake::of)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Requests to retrieve any attached files.
+     *
+     * @return A {@link Flux} that continually emits any {@link Attachment attached} files. If an error is received, it
+     * is emitted through the {@code Flux}.
+     */
+    public Flux<Attachment> getAttachments() {
         throw new UnsupportedOperationException("Not yet implemented...");
     }
 
@@ -238,7 +250,7 @@ public final class Message implements Entity {
      * message, if present. If an error is received, it is emitted through the {@code Mono}.
      */
     public Mono<Webhook> getWebhook() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return Mono.justOrEmpty(getWebhookId()).flatMap(getClient()::getWebhookById);
     }
 
     /**
@@ -247,10 +259,7 @@ public final class Message implements Entity {
      * @return The type of message.
      */
     public Type getType() {
-        return Arrays.stream(Type.values())
-                .filter(value -> value.value == data.getType())
-                .findFirst() // If this throws Discord added something
-                .orElseThrow(UnsupportedOperationException::new);
+        return Type.of(data.getType());
     }
 
     /** Represents the various types of messages. */
@@ -299,6 +308,27 @@ public final class Message implements Entity {
          */
         public int getValue() {
             return value;
+        }
+
+        /**
+         * Gets the type of message. It is guaranteed that invoking {@link #getValue()} from the returned enum will
+         * equal ({@code ==}) the supplied {@code value}.
+         *
+         * @param value The underlying value as represented by Discord.
+         * @return The type of message.
+         */
+        public static Type of(final int value) {
+            switch (value) {
+                case 0: return DEFAULT;
+                case 1: return RECIPIENT_ADD;
+                case 2: return RECIPIENT_REMOVE;
+                case 3: return CALL;
+                case 4: return CHANNEL_NAME_CHANGE;
+                case 5: return CHANNEL_ICON_CHANGE;
+                case 6: return CHANNEL_PINNED_MESSAGE;
+                case 7: return GUILD_MEMBER_JOIN;
+                default: throw new UnsupportedOperationException("Unknown Value: " + value);
+            }
         }
     }
 }

@@ -16,15 +16,15 @@
  */
 package discord4j.core.object.entity;
 
-import discord4j.core.ServiceMediator;
 import discord4j.core.DiscordClient;
+import discord4j.core.ServiceMediator;
 import discord4j.core.object.PermissionSet;
 import discord4j.core.object.Snowflake;
 import discord4j.core.object.entity.bean.RoleBean;
 import discord4j.core.trait.Positionable;
 import reactor.core.publisher.Mono;
 
-import java.awt.Color;
+import java.awt.*;
 import java.util.Objects;
 
 /**
@@ -136,7 +136,7 @@ public final class Role implements Entity, Positionable {
      * to. If an error is received, it is emitted through the {@code Mono}.
      */
     public Mono<Guild> getGuild() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return getClient().getGuildById(getGuildId());
     }
 
     /**

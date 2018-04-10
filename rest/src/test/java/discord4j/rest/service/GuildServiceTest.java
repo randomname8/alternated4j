@@ -23,11 +23,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import discord4j.common.jackson.PossibleModule;
 import discord4j.common.json.request.*;
+import discord4j.common.json.response.ChannelResponse;
 import discord4j.common.json.response.GuildResponse;
 import discord4j.rest.http.*;
 import discord4j.rest.http.client.SimpleHttpClient;
 import discord4j.rest.request.Router;
 import discord4j.rest.route.Routes;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Collections;
@@ -39,14 +41,11 @@ public class GuildServiceTest {
     private static final long permanentRole = Long.parseUnsignedLong(System.getenv("permanentRole"));
     private static final long trashCategory = Long.parseUnsignedLong(System.getenv("trashCategory"));
 
-    private GuildService guildService = null;
+    private GuildService guildService;
+    private ChannelService channelService;
 
-    private GuildService getGuildService() {
-
-        if (guildService != null) {
-            return guildService;
-        }
-
+    @Before
+    public void setup() {
         String token = System.getenv("token");
         ObjectMapper mapper = getMapper();
 
@@ -62,8 +61,8 @@ public class GuildServiceTest {
                 .build();
 
         Router router = new Router(httpClient);
-
-        return guildService = new GuildService(router);
+        guildService = new GuildService(router);
+        channelService = new ChannelService(router);
     }
 
     private ObjectMapper getMapper() {
@@ -71,6 +70,14 @@ public class GuildServiceTest {
                 .setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY)
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true)
                 .registerModules(new PossibleModule(), new Jdk8Module());
+    }
+
+    private GuildService getGuildService() {
+        return guildService;
+    }
+
+    private ChannelService getChannelService() {
+        return channelService;
     }
 
     @Test
@@ -97,7 +104,7 @@ public class GuildServiceTest {
 
     @Test
     public void testGetGuildChannels() {
-        getGuildService().getGuildChannels(guild).block();
+        getGuildService().getGuildChannels(guild).then().block();
     }
 
     @Test
@@ -105,6 +112,16 @@ public class GuildServiceTest {
         String randomName = Long.toHexString(Double.doubleToLongBits(Math.random()));
         ChannelCreateRequest req = ChannelCreateRequest.builder().name(randomName).parentId(trashCategory).build();
         getGuildService().createGuildChannel(guild, req).block();
+    }
+
+    @Test
+    public void testDeleteGuildChannels() {
+        getGuildService().getGuildChannels(guild)
+                .filter(res -> res.getParentId() != null && trashCategory == res.getParentId())
+                .map(ChannelResponse::getId)
+                .flatMap(id -> getChannelService().deleteChannel(id))
+                .then()
+                .block();
     }
 
     @Test
@@ -119,7 +136,7 @@ public class GuildServiceTest {
 
     @Test
     public void testGetGuildMembers() {
-        getGuildService().getGuildMembers(guild, Collections.emptyMap()).block();
+        getGuildService().getGuildMembers(guild, Collections.emptyMap()).then().block();
     }
 
     @Test
@@ -156,7 +173,7 @@ public class GuildServiceTest {
 
     @Test
     public void testGetGuildBans() {
-        getGuildService().getGuildBans(guild).block();
+        getGuildService().getGuildBans(guild).then().block();
     }
 
     @Test
@@ -171,7 +188,7 @@ public class GuildServiceTest {
 
     @Test
     public void testGetGuildRoles() {
-        getGuildService().getGuildRoles(guild).block();
+        getGuildService().getGuildRoles(guild).then().block();
     }
 
     @Test
@@ -210,17 +227,17 @@ public class GuildServiceTest {
 
     @Test
     public void testGetGuildVoiceRegions() {
-        getGuildService().getGuildVoiceRegions(guild).block();
+        getGuildService().getGuildVoiceRegions(guild).then().block();
     }
 
     @Test
     public void testGetGuildInvites() {
-        getGuildService().getGuildInvites(guild).block();
+        getGuildService().getGuildInvites(guild).then().block();
     }
 
     @Test
     public void testGetGuildIntegrations() {
-        getGuildService().getGuildIntegrations(guild).block();
+        getGuildService().getGuildIntegrations(guild).then().block();
     }
 
     @Test

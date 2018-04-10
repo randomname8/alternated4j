@@ -16,14 +16,13 @@
  */
 package discord4j.core.object;
 
-import discord4j.core.ServiceMediator;
 import discord4j.core.DiscordClient;
+import discord4j.core.ServiceMediator;
 import discord4j.core.object.bean.PresenceBean;
 import discord4j.core.object.entity.Guild;
 import discord4j.core.object.entity.User;
 import reactor.core.publisher.Mono;
 
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -72,7 +71,7 @@ public final class Presence implements DiscordObject {
      * If an error is received, it is emitted through the {@code Mono}.
      */
     public Mono<User> getUser() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return getClient().getUserById(getUserId());
     }
 
     /**
@@ -100,7 +99,7 @@ public final class Presence implements DiscordObject {
      * if present. If an error is received, it is emitted through the {@code Mono}.
      */
     public Mono<Guild> getGuild() {
-        throw new UnsupportedOperationException("Not yet implemented...");
+        return Mono.justOrEmpty(getGuildId()).flatMap(getClient()::getGuildById);
     }
 
     /**
@@ -109,9 +108,7 @@ public final class Presence implements DiscordObject {
      * @return The status of this presence, if possible.
      */
     public Optional<Status> getStatus() {
-        return Arrays.stream(Status.values())
-                .filter(status -> status.value.equals(data.getStatus()))
-                .findFirst();
+        return Optional.ofNullable(data.getStatus()).map(Status::of);
     }
 
     /** The status of a presence, indicated by a tiny colored circle next to an user's profile picture. */
@@ -148,6 +145,23 @@ public final class Presence implements DiscordObject {
          */
         public String getValue() {
             return value;
+        }
+
+        /**
+         * Gets the status of the presence. It is guaranteed that invoking {@link #getValue()} from the returned enum
+         * will equal ({@link #equals(Object)}) the supplied {@code value}.
+         *
+         * @param value The underlying value as represented by Discord.
+         * @return The status of the message.
+         */
+        public static Status of(final String value) {
+            switch (value) {
+                case "idle": return IDLE;
+                case "dnd": return DND;
+                case "online": return ONLINE;
+                case "offline": return OFFLINE;
+                default: throw new UnsupportedOperationException("Unknown Value: " + value);
+            }
         }
     }
 }
