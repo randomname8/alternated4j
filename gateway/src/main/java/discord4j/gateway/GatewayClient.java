@@ -17,10 +17,18 @@
 package discord4j.gateway;
 
 import discord4j.common.ResettableInterval;
+import discord4j.common.jackson.Possible;
 import discord4j.common.json.payload.GatewayPayload;
 import discord4j.common.json.payload.Heartbeat;
+import discord4j.common.json.payload.Hello;
+import discord4j.common.json.payload.Identify;
+import discord4j.common.json.payload.IdentifyProperties;
+import discord4j.common.json.payload.InvalidSession;
 import discord4j.common.json.payload.Opcode;
+import discord4j.common.json.payload.PayloadData;
+import discord4j.common.json.payload.Resume;
 import discord4j.common.json.payload.StatusUpdate;
+import discord4j.common.json.payload.dispatch.Dispatch;
 import discord4j.common.json.payload.dispatch.Ready;
 import discord4j.gateway.payload.PayloadReader;
 import discord4j.gateway.payload.PayloadWriter;
@@ -40,6 +48,7 @@ import reactor.util.Loggers;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
@@ -79,9 +88,9 @@ public class GatewayClient {
   private final AtomicReference<int[]> shard = new AtomicReference<>();
   private final AtomicReference<StatusUpdate> status = new AtomicReference<>();
 
-  private final FluxSink<GatewayEvent<?>> dispatchSink;
-  private final FluxSink<GatewayPayload<?>> receiverSink;
-  private final FluxSink<GatewayPayload<?>> senderSink;
+  protected final FluxSink<GatewayEvent<?>> dispatchSink;
+  protected final FluxSink<GatewayPayload<?>> receiverSink;
+  protected final FluxSink<GatewayPayload<?>> senderSink;
 
   public GatewayClient(PayloadReader payloadReader, PayloadWriter payloadWriter,
     RetryOptions retryOptions, String token) {
@@ -93,7 +102,7 @@ public class GatewayClient {
     // initialize the sinks to safely produce values downstream
     // we use LATEST backpressure handling to avoid overflow on no subscriber situations
     this.dispatchSink = dispatch.sink(FluxSink.OverflowStrategy.LATEST);
-    this.receiverSink = receiver.sink(FluxSink.OverflowStrategy.LATEST);
+    this.receiverSink = receiver.sink(FluxSink.OverflowStrategy.ERROR);
     this.senderSink = sender.sink(FluxSink.OverflowStrategy.LATEST);
   }
 
@@ -129,8 +138,18 @@ public class GatewayClient {
 
       // Subscribe the receiver to process and transform the inbound payloads into Dispatch events
       Disposable receiverSub = receiver.map(this::updateSequence)
-        .map(payload -> payloadContext(payload, handler, this))
-        .subscribe(PayloadHandlers::handle);
+        .subscribe(payload -> {
+          switch (payload.getOp().getRawOp()) {
+            case 0 /*DISPATCH*/: handleDispatch((GatewayPayload) payload); break;
+            case 1 /*HEARTBEAT*/: handleHeartbeat((GatewayPayload) payload); break;
+            case 7 /*RECONNECT*/: handleReconnect((GatewayPayload) payload, handler); break;
+            case 9 /*INVALID_SESSION*/: handleInvalidSession((GatewayPayload) payload, handler); break;
+            case 10 /*HELLO*/: handleHello((GatewayPayload) payload); break;
+            case 11 /*HEARTBEAT_ACK*/: handleHeartbeatAck((GatewayPayload) payload); break; 
+            default: /*null*/
+          }
+        });
+      
 
       // Subscribe the handler's outbound exchange with our outgoing signals
       // routing error and completion signals to close the gateway
@@ -173,11 +192,49 @@ public class GatewayClient {
     }
     return payload;
   }
+  
+    private void handleDispatch(GatewayPayload<Dispatch> context) {
+        if (context.getData() instanceof Ready) {
+            String newSessionId = ((Ready) context.getData()).getSessionId();
+            sessionId.set(newSessionId);
+        }
+        dispatchSink.next(new GatewayEvent<>(null, context.getData()));
+    }
 
-  private PayloadContext<?> payloadContext(GatewayPayload<?> payload, DiscordWebSocketHandler handler,
-    GatewayClient client) {
-    return new PayloadContext<>(payload, handler, client);
-  }
+    private void handleHeartbeat(GatewayPayload<Heartbeat> context) {
+        log.debug("Received heartbeat");
+    }
+
+    private void handleReconnect(GatewayPayload<?> context, DiscordWebSocketHandler handler) {
+        handler.error(new RuntimeException("Reconnecting due to reconnect packet received"));
+    }
+
+    private void handleInvalidSession(GatewayPayload<InvalidSession> context, DiscordWebSocketHandler handler) {
+        // TODO polish
+        if (context.getData().isResumable()) {
+            senderSink.next(GatewayPayload.resume(
+                    new Resume(token, sessionId.get(), lastSequence.get())));
+        } else {
+            handler.error(new RuntimeException("Reconnecting due to non-resumable session invalidation"));
+        }
+    }
+
+    private void handleHello(GatewayPayload<Hello> context) {
+        Duration interval = Duration.ofMillis(context.getData().getHeartbeatInterval());
+        heartbeat.start(interval);
+
+        IdentifyProperties props = new IdentifyProperties(System.getProperty("os.name"), "Discord4J", "Discord4J");
+        Identify identify = new Identify(token, props, false, 250,
+                Optional.ofNullable(shard.get()).map(Possible::of).orElse(Possible.absent()),
+                Optional.ofNullable(status.get()).map(Possible::of).orElse(Possible.absent()));
+        GatewayPayload<Identify> response = GatewayPayload.identify(identify);
+
+        senderSink.next(response);
+    }
+
+    private void handleHeartbeatAck(GatewayPayload<?> context) {
+        log.debug("Received heartbeat ack");
+    }
 
   /**
    * Terminates this client's current gateway connection, and optionally, reconnect to it.

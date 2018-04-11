@@ -42,7 +42,6 @@ public class JacksonPayloadWriter implements PayloadWriter {
       if (payload.getSequence() >= 0) res.put(JacksonPayloadReader.S_FIELD, payload.getSequence()); else res.putNull("s");
       res.put(JacksonPayloadReader.OP_FIELD, payload.getOp().getRawOp());
       res.set(JacksonPayloadReader.D_FIELD, mapper.valueToTree(payload.getData()));
-      System.out.println("Writing " + mapper.writeValueAsString(res));
       return Unpooled.wrappedBuffer(mapper.writeValueAsBytes(res));
     } catch (JsonProcessingException e) {
       throw Exceptions.propagate(e);
