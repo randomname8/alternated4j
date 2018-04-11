@@ -17,10 +17,7 @@
 
 package discord4j.common.json.payload;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import discord4j.common.Lazy;
-import discord4j.common.jackson.OpcodeConverter;
 
 import javax.annotation.Nullable;
 import java.util.Objects;
@@ -30,14 +27,10 @@ public class GatewayPayload<T extends PayloadData> {
 
     public static int NO_SEQ = -1;
   
-    @JsonSerialize(converter = OpcodeConverter.class)
     private Opcode<T> op;
-    @JsonProperty("d")
     @Nullable
     private Lazy<T> dataSupplier;
-    @JsonProperty("s")
     private int sequence;
-    @JsonProperty("t")
     @Nullable
     private String type;
 
